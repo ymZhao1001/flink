@@ -51,12 +51,20 @@ public class DefaultJobMasterServiceProcessFactory implements JobMasterServicePr
         this.jobMasterServiceFactory = jobMasterServiceFactory;
     }
 
+    /**
+     * 创建ExecutionGraph 并启动 JobMaster
+     *
+     * @param leaderSessionId leaderSessionId for which to create a {@link JobMasterServiceProcess}
+     * @return
+     */
     @Override
     public JobMasterServiceProcess create(UUID leaderSessionId) {
+        // 启动JobMaster
         return new DefaultJobMasterServiceProcess(
                 jobId,
                 leaderSessionId,
                 jobMasterServiceFactory,
+                // 这里生成的ExecutionGraph是个容器，内容在JobMaster内部填充
                 cause -> createArchivedExecutionGraph(JobStatus.FAILED, cause));
     }
 

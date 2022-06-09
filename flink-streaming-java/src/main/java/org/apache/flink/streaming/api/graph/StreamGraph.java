@@ -667,6 +667,14 @@ public class StreamGraph implements Pipeline {
 
         // If no partitioner was specified and the parallelism of upstream and downstream
         // operator matches use forward partitioning, use rebalance otherwise.
+
+        /**
+         * 如果没有设置 partitioner
+         *
+         * <p>1、如果上游 StreamNode 和 下游 StreamNode 的并行度一样，则使用： ForwardPartitioner 数据分发策略
+         *
+         * <p>2、如果上游 StreamNode 和 下游 StreamNode 的并行度不一样，则使用： RebalancePartitioner 数据分发策略
+         */
         if (partitioner == null
                 && upstreamNode.getParallelism() == downstreamNode.getParallelism()) {
             partitioner =
@@ -715,7 +723,9 @@ public class StreamGraph implements Pipeline {
                         exchangeMode,
                         uniqueId);
 
+        // 给上游 StreamNode设置出边
         getStreamNode(edge.getSourceId()).addOutEdge(edge);
+        // 给下游 StreamNode设置入边
         getStreamNode(edge.getTargetId()).addInEdge(edge);
     }
 

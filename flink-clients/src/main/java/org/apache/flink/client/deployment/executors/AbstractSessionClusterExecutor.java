@@ -64,6 +64,7 @@ public class AbstractSessionClusterExecutor<
             @Nonnull final Configuration configuration,
             @Nonnull final ClassLoader userCodeClassloader)
             throws Exception {
+        /** 构建jobGraph */
         final JobGraph jobGraph = PipelineExecutorUtils.getJobGraph(pipeline, configuration);
 
         try (final ClusterDescriptor<ClusterID> clusterDescriptor =
@@ -74,6 +75,16 @@ public class AbstractSessionClusterExecutor<
             final ClusterClientProvider<ClusterID> clusterClientProvider =
                     clusterDescriptor.retrieve(clusterID);
             ClusterClient<ClusterID> clusterClient = clusterClientProvider.getClusterClient();
+
+            /**
+             * 提交执行，submitJob的实现方式
+             *
+             * <p>RestClusterClient 提交到 Flink Rest 服务处理
+             *
+             * <p>MiniClusterClient 本地执行，
+             *
+             * <p>jobGraph 持久化到临时文件
+             */
             return clusterClient
                     .submitJob(jobGraph)
                     .thenApplyAsync(

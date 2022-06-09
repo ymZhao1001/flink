@@ -78,11 +78,21 @@ public final class JobSubmitHandler
         this.configuration = configuration;
     }
 
+    /**
+     * 接收到客户端的请求
+     *
+     * @param request request that should be handled
+     * @param gateway leader gateway
+     * @return
+     * @throws RestHandlerException
+     */
     @Override
     protected CompletableFuture<JobSubmitResponseBody> handleRequest(
             @Nonnull HandlerRequest<JobSubmitRequestBody> request,
             @Nonnull DispatcherGateway gateway)
             throws RestHandlerException {
+
+        //  从请求中获取文件： 包含 JobGraph 序列化文件
         final Collection<File> uploadedFiles = request.getUploadedFiles();
         final Map<String, Path> nameToFile =
                 uploadedFiles.stream()
@@ -108,20 +118,26 @@ public final class JobSubmitHandler
                     HttpResponseStatus.BAD_REQUEST);
         }
 
+        /** 恢复得到 JobGragh, 客户端最终把JobGragh提交给 JobManager 了,最终由 JobSubmitHandler 来执行处理 */
         CompletableFuture<JobGraph> jobGraphFuture = loadJobGraph(requestBody, nameToFile);
 
+        /** 得到jar包 */
         Collection<Path> jarFiles = getJarFilesToUpload(requestBody.jarFileNames, nameToFile);
 
+        /** 获取 依赖 jar */
         Collection<Tuple2<String, Path>> artifacts =
                 getArtifactFilesToUpload(requestBody.artifactFileNames, nameToFile);
 
+        /** 上传： JobGraph + 程序jar + 依赖 jar */
         CompletableFuture<JobGraph> finalizedJobGraphFuture =
                 uploadJobGraphFiles(gateway, jobGraphFuture, jarFiles, artifacts, configuration);
 
+        /** 提交任务 */
         CompletableFuture<Acknowledge> jobSubmissionFuture =
                 finalizedJobGraphFuture.thenCompose(
                         jobGraph -> gateway.submitJob(jobGraph, timeout));
 
+        /** 处理返回 */
         return jobSubmissionFuture.thenCombine(
                 jobGraphFuture,
                 (ack, jobGraph) -> new JobSubmitResponseBody("/jobs/" + jobGraph.getJobID()));

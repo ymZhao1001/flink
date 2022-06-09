@@ -529,6 +529,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
     private CompletableFuture<Acknowledge> internalSubmitJob(JobGraph jobGraph) {
         log.info("Submitting job '{}' ({}).", jobGraph.getName(), jobGraph.getJobID());
+        // persistAndRunJob 运行任务
         return waitForTerminatingJob(jobGraph.getJobID(), jobGraph, this::persistAndRunJob)
                 .handle((ignored, throwable) -> handleTermination(jobGraph.getJobID(), throwable))
                 .thenCompose(Function.identity());
@@ -570,6 +571,10 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
     private JobManagerRunner createJobMasterRunner(JobGraph jobGraph) throws Exception {
         Preconditions.checkState(!jobManagerRunnerRegistry.isRegistered(jobGraph.getJobID()));
+
+        /**
+         * createJobManagerRunner 方法返回 jobManagerRunnerFactory 在JobManagerRunner start时生成jobMaster
+         */
         return jobManagerRunnerFactory.createJobManagerRunner(
                 jobGraph,
                 configuration,
@@ -591,8 +596,24 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
                 ioExecutor);
     }
 
+    /**
+     * 客户端正常提交一个 job 的时候，最终由 集群主节点中的 Dispatcher 接收到来继续提交执行
+     *
+     * @param jobManagerRunner
+     * @param executionType
+     * @throws Exception
+     */
     private void runJob(JobManagerRunner jobManagerRunner, ExecutionType executionType)
             throws Exception {
+        /** start 做了2件事情，1.创建JobMaster，创建ExecutionGraph 2. 启动JobMaster */
+
+        /**
+         * 启动 JobMaster，
+         *
+         * <p>1、创建JobMaster 实例
+         *
+         * <p>2、同时会把 JobGraph 编程 ExecutionGraph
+         */
         jobManagerRunner.start();
         jobManagerRunnerRegistry.register(jobManagerRunner);
 

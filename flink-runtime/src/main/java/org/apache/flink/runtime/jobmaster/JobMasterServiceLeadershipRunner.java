@@ -244,6 +244,11 @@ public class JobMasterServiceLeadershipRunner implements JobManagerRunner, Leade
         }
     }
 
+    /**
+     * 启动jobmaster
+     *
+     * @param leaderSessionID New leader session ID
+     */
     @Override
     public void grantLeadership(UUID leaderSessionID) {
         runIfStateRunning(
@@ -306,6 +311,7 @@ public class JobMasterServiceLeadershipRunner implements JobManagerRunner, Leade
                 "Create new JobMasterServiceProcess because we were granted leadership under {}.",
                 leaderSessionId);
 
+        // 工厂模式生成jobMaster
         jobMasterServiceProcess = jobMasterServiceProcessFactory.create(leaderSessionId);
 
         forwardIfValidLeader(

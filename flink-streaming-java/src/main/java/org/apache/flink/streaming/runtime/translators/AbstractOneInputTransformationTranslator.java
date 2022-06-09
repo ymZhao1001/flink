@@ -60,6 +60,7 @@ abstract class AbstractOneInputTransformationTranslator<IN, OUT, OP extends Tran
         final int transformationId = transformation.getId();
         final ExecutionConfig executionConfig = streamGraph.getExecutionConfig();
 
+        /** 添加一个 Operator（StreamGraph 端会添加一个 StreamNode） */
         streamGraph.addOperator(
                 transformationId,
                 slotSharingGroup,
@@ -74,6 +75,7 @@ abstract class AbstractOneInputTransformationTranslator<IN, OUT, OP extends Tran
             streamGraph.setOneInputStateKey(transformationId, stateKeySelector, keySerializer);
         }
 
+        /** 设置并行度 */
         int parallelism =
                 transformation.getParallelism() != ExecutionConfig.PARALLELISM_DEFAULT
                         ? transformation.getParallelism()
@@ -87,6 +89,7 @@ abstract class AbstractOneInputTransformationTranslator<IN, OUT, OP extends Tran
                 "Expected exactly one input transformation but found "
                         + parentTransformations.size());
 
+        /** 定义该 StreamNode 的 入边 */
         for (Integer inputId : context.getStreamNodeIds(parentTransformations.get(0))) {
             streamGraph.addEdge(inputId, transformationId, 0);
         }

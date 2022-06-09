@@ -162,6 +162,11 @@ public class StreamingJobGraphGenerator {
         jobGraph = new JobGraph(jobID, streamGraph.getJobName());
     }
 
+    /**
+     * 完成 StreamGraph 到 JobGraph 的转换
+     *
+     * @return
+     */
     private JobGraph createJobGraph() {
         preValidate();
         jobGraph.setJobType(streamGraph.getJobType());
@@ -171,6 +176,7 @@ public class StreamingJobGraphGenerator {
 
         // Generate deterministic hashes for the nodes in order to identify them across
         // submission iff they didn't change.
+        /** 为节点生成确定性哈希，以便在提交未发生变化的情况下对其进行标识 */
         Map<Integer, byte[]> hashes =
                 defaultStreamGraphHasher.traverseStreamGraphAndGenerateHashes(streamGraph);
 
@@ -180,8 +186,21 @@ public class StreamingJobGraphGenerator {
             legacyHashes.add(hasher.traverseStreamGraphAndGenerateHashes(streamGraph));
         }
 
+        /**
+         * 设置 Chaining, 将可以 Chain 到一起的 StreamNode Chain 在一起， 这里会生成相应的 JobVertex 、JobEdge
+         * 、IntermediateDataSet 对象 把能 chain 在一起的 Operator 都合并了，变成了 OperatorChain
+         *
+         * <p>实现方式 遍历节点：
+         *
+         * <p>1、如果该节点是一个 chain 的头节点，就生成一个 JobVertex，
+         *
+         * <p>2、如果不是头节点，就要把自身配置并入头节点，然后把头节点和自己的出边相连； 对于不能chain的节点，当作只有头节点处理即可
+         *
+         * <p>作用： 能减少线程之间的切换，减少消息的序列化/反序列化，减少数据在缓冲区的交换，减少了延迟的同时提高整体的吞吐量。
+         */
         setChaining(hashes, legacyHashes);
 
+        /** 设置 PhysicalEdges，将每个 JobVertex 的入边集合也序列化到该 JobVertex 的 StreamConfig 中出边集合 */
         setPhysicalEdges();
 
         setSlotSharingAndCoLocation();
@@ -193,6 +212,7 @@ public class StreamingJobGraphGenerator {
                 id -> streamGraph.getStreamNode(id).getManagedMemoryOperatorScopeUseCaseWeights(),
                 id -> streamGraph.getStreamNode(id).getManagedMemorySlotScopeUseCases());
 
+        // 设置 SnapshotSettings， checkpoint 相关的设置
         configureCheckpointing();
 
         jobGraph.setSavepointRestoreSettings(streamGraph.getSavepointRestoreSettings());
@@ -542,12 +562,18 @@ public class StreamingJobGraphGenerator {
 
             List<StreamEdge> transitiveOutEdges = new ArrayList<StreamEdge>();
 
+            // 可以chain在一起的节点
             List<StreamEdge> chainableOutputs = new ArrayList<StreamEdge>();
+
+            // 不可以chain在一起的节点
             List<StreamEdge> nonChainableOutputs = new ArrayList<StreamEdge>();
 
+            // 当前要处理的节点
             StreamNode currentNode = streamGraph.getStreamNode(currentNodeId);
 
             for (StreamEdge outEdge : currentNode.getOutEdges()) {
+
+                // 判断是否可以chain在一起
                 if (isChainable(outEdge, streamGraph)) {
                     chainableOutputs.add(outEdge);
                 } else {
@@ -555,6 +581,7 @@ public class StreamingJobGraphGenerator {
                 }
             }
 
+            /** 把可以 chain 在一起的 StreamEdge 两边的 Operator chain 在一个形成一个 OperatorChain */
             for (StreamEdge chainable : chainableOutputs) {
                 transitiveOutEdges.addAll(
                         createChain(
@@ -564,6 +591,7 @@ public class StreamingJobGraphGenerator {
                                 chainEntryPoints));
             }
 
+            /** 不能 chain 一起的话，这里的 chainIndex 是从 0 开始算的，后面也肯定会走到 createJobVertex 的逻辑 */
             for (StreamEdge nonChainable : nonChainableOutputs) {
                 transitiveOutEdges.add(nonChainable);
                 createChain(
@@ -602,6 +630,12 @@ public class StreamingJobGraphGenerator {
                         .addOutputFormat(currentOperatorId, currentNode.getOutputFormat());
             }
 
+            /**
+             * 把chain在一起的多个 Operator 创建成一个 JobVertex 如果当前节点是 chain 的起始节点, 则直接创建 JobVertex 并返回
+             * StreamConfig, 否则先创建一个空的 StreamConfig 这里实际上，如果节点不能 chain 在一起，那么 currentNodeId 跟
+             * startNodeId 肯定是不相等的 createJobVertex 函数就是根据 StreamNode 创建对应的 JobVertex, 并返回了空的
+             * StreamConfig
+             */
             StreamConfig config =
                     currentNodeId.equals(startNodeId)
                             ? createJobVertex(startNodeId, chainInfo)

@@ -258,6 +258,8 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
                 "Starting scheduling with scheduling strategy [{}]",
                 schedulingStrategy.getClass().getName());
         transitionToRunning();
+
+        /** 流式作业默认调度方式：PipelinedRegionSchedulingStrategy */
         schedulingStrategy.startScheduling();
     }
 
@@ -424,17 +426,20 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
     public void allocateSlotsAndDeploy(final List<ExecutionVertexID> verticesToDeploy) {
         validateDeploymentOptions(verticesToDeploy);
 
+        /** 各种映射处理 */
         final Map<ExecutionVertexID, ExecutionVertexVersion> requiredVersionByVertex =
                 executionVertexVersioner.recordVertexModifications(verticesToDeploy);
 
         transitionToScheduled(verticesToDeploy);
 
+        /** 申请Slot 参数： 待调度执行的 ExecutionVertex 集合 */
         final List<SlotExecutionVertexAssignment> slotExecutionVertexAssignments =
                 allocateSlots(verticesToDeploy);
 
         final List<DeploymentHandle> deploymentHandles =
                 createDeploymentHandles(requiredVersionByVertex, slotExecutionVertexAssignments);
 
+        /** 部署运行 1、申请到了 slot 2、构件好了 Handler 3、执行部署 */
         waitForAllSlotsAndDeploy(deploymentHandles);
     }
 

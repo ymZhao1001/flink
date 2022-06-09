@@ -116,6 +116,7 @@ public class DefaultExecutionGraphBuilder {
                         jobManagerConfig);
 
         // create a new execution graph, if none exists so far
+        /** 创建 ExecutionGraph 对象 */
         final DefaultExecutionGraph executionGraph;
         try {
             executionGraph =
@@ -144,6 +145,7 @@ public class DefaultExecutionGraphBuilder {
         // set the basic properties
 
         try {
+            /** 生成 JobGraph 的 JSON 表达形式 */
             executionGraph.setJsonPlan(JsonPlanGenerator.generatePlan(jobGraph));
         } catch (Throwable t) {
             log.warn("Cannot create JSON plan for job", t);

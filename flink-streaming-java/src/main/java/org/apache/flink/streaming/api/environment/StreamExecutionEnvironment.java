@@ -1964,6 +1964,7 @@ public class StreamExecutionEnvironment {
      */
     public JobExecutionResult execute(String jobName) throws Exception {
         Preconditions.checkNotNull(jobName, "Streaming Job name should not be null.");
+        /** 1、获取streamGraph 2、执行streamGraph */
         final StreamGraph streamGraph = getStreamGraph();
         streamGraph.setJobName(jobName);
         return execute(streamGraph);
@@ -2089,11 +2090,13 @@ public class StreamExecutionEnvironment {
                 "Cannot find compatible factory for specified execution.target (=%s)",
                 configuration.get(DeploymentOptions.TARGET));
 
+        /** 异步提交执行 StreamGraph 跳转到： AbstractSessionClusterExecutor 的 execute() 方法 */
         CompletableFuture<JobClient> jobClientFuture =
                 executorFactory
                         .getExecutor(configuration)
                         .execute(streamGraph, configuration, userClassloader);
 
+        /** 阻塞获取 StreamGraph 的执行结果 */
         try {
             JobClient jobClient = jobClientFuture.get();
             jobListeners.forEach(jobListener -> jobListener.onJobSubmitted(jobClient, null));
@@ -2129,10 +2132,13 @@ public class StreamExecutionEnvironment {
      *
      * @param clearTransformations Whether or not to clear previously registered transformations
      * @return The stream graph representing the transformations
+     *     <p>clearTransformations 避免重复提交
      */
     @Internal
     public StreamGraph getStreamGraph(boolean clearTransformations) {
+        // new 一个StreamGraphGenerator 对象，然后生成StreamGraph
         final StreamGraph streamGraph = getStreamGraphGenerator(transformations).generate();
+        /** 清空掉所有的算子，当 StreamGraph 生成好后，则之前各种算子转换得到的 transformations 就没用了 */
         if (clearTransformations) {
             transformations.clear();
         }

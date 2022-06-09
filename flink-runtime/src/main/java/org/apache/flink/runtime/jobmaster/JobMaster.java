@@ -636,6 +636,7 @@ public class JobMaster extends PermanentlyFencedRpcEndpoint<JobMasterId>
                 new RpcTaskManagerGateway(
                         taskManagerRegistration.getTaskExecutorGateway(), getFencingToken());
 
+        /** 将申请到的 slot 放入 SlotPool 中 */
         return CompletableFuture.completedFuture(
                 slotPoolService.offerSlots(
                         taskManagerRegistration.getTaskManagerLocation(),
@@ -910,6 +911,11 @@ public class JobMaster extends PermanentlyFencedRpcEndpoint<JobMasterId>
         JobShuffleContext context = new JobShuffleContextImpl(jobGraph.getJobID(), this);
         shuffleMaster.registerJob(context);
 
+        /**
+         * 初始化一些必要的服务组件
+         *
+         * <p>JobMaster 的注册和心跳
+         */
         startJobMasterServices();
 
         log.info(
@@ -918,6 +924,7 @@ public class JobMaster extends PermanentlyFencedRpcEndpoint<JobMasterId>
                 jobGraph.getJobID(),
                 getFencingToken());
 
+        /** 开始调度执行 JobMaster 调度 StreamTask 去运行 */
         startScheduling();
     }
 

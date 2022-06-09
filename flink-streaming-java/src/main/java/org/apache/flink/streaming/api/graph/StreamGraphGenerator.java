@@ -303,16 +303,35 @@ public class StreamGraphGenerator {
     }
 
     public StreamGraph generate() {
+        /** 构造一个空的streamgraph */
         streamGraph = new StreamGraph(executionConfig, checkpointConfig, savepointRestoreSettings);
+
         streamGraph.setEnableCheckpointsAfterTasksFinish(
                 configuration.get(
                         ExecutionCheckpointingOptions.ENABLE_CHECKPOINTS_AFTER_TASKS_FINISH));
         shouldExecuteInBatchMode = shouldExecuteInBatchMode();
+
+        /**
+         * 当时在生成 StreamGraphGenerator 的时候，就已经把各种属性设置到 StreamGraphGenerator 中了，现在把
+         * StreamGraphGenerator 中的属性， 设置到 StreamGraph 中
+         */
         configureStreamGraph(streamGraph);
 
+        /** 初始化一个容器用来去存储 已经转换过的 Transformation */
         alreadyTransformed = new IdentityHashMap<>();
 
+        /**
+         * 行各种算子的 transformation： 由 算子 生成 Transformation 来构建 StreamGraph ，在执行各种算子的时候，就已经把算子转换成对应的
+         * Transformation 放入 transformations 集合中了 ，自底向上(先遍历 input transformations) 对转换树的每个
+         * transformation 进行转换
+         */
         for (Transformation<?> transformation : transformations) {
+
+            /**
+             * 从 Env 对象中，把 Transformation 拿出来，然后转换成StreamNode
+             *
+             * <p>Function --> Operator -->Transformation --> StreamNode
+             */
             transform(transformation);
         }
 
@@ -499,6 +518,8 @@ public class StreamGraphGenerator {
      * delegates to one of the transformation specific methods.
      */
     private Collection<Integer> transform(Transformation<?> transform) {
+
+        /** 已经 transform 的 Transformation 会放在这个集合中 */
         if (alreadyTransformed.containsKey(transform)) {
             return alreadyTransformed.get(transform);
         }
@@ -546,6 +567,9 @@ public class StreamGraphGenerator {
         transform.getOutputType();
 
         @SuppressWarnings("unchecked")
+        /**
+         * 根据 transform 的类型，做相应不同的转换， 将当前 Transformation 转换成 StreamNode 和 StreamEdge，便于构建SreamGraph
+         */
         final TransformationTranslator<?, Transformation<?>> translator =
                 (TransformationTranslator<?, Transformation<?>>)
                         translatorMap.get(transform.getClass());
@@ -820,6 +844,7 @@ public class StreamGraphGenerator {
         final TransformationTranslator.Context context =
                 new ContextImpl(this, streamGraph, slotSharingGroup, configuration);
 
+        /** 根据任务类型，将transform生成转换streamnode */
         return shouldExecuteInBatchMode
                 ? translator.translateForBatch(transform, context)
                 : translator.translateForStreaming(transform, context);
